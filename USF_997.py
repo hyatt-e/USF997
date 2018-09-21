@@ -6,12 +6,6 @@ os.chdir(r'G:/WPy-3661/python/USF-997/IntIn-DEV/')
 # file = open(r'G:/WPy-3661/python/USF-997/')
 
 
-
-
-
-
-
-
 def find_dir():
 	dir_count = 0
 
