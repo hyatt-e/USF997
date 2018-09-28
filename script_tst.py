@@ -78,9 +78,9 @@ def set_time_rng(error):
 
 						# no separators; check length
 						elif len(startDate) == 8:
-							stMonth = int(startDate[:2])
-							stDay = int(startDate[2:4])
-							stYear = int(startDate[4:])
+							stMonth = startDate[:2]
+							stDay = startDate[2:4]
+							stYear = startDate[4:]
 							startDate = stMonth + '-' + stDay + '-' + stYear
 							startDate = valiDate(startDate, '-', None)
 						else:
@@ -147,9 +147,9 @@ def set_time_rng(error):
 
 							# no separators; check length
 							elif len(endDate) == 8:
-								endMonth = int(endDate[:2])
-								endDay = int(endDate[2:4])
-								endYear = int(endDate[4:])
+								endMonth = endDate[:2]
+								endDay = endDate[2:4]
+								endYear = endDate[4:]
 								endDate = endMonth + '-' + endDay + '-' + endYear
 								endDate = valiDate(endDate, '-', startDate)
 								exit = True
