@@ -1,39 +1,69 @@
-import os, time, re, datetime
-# import pandas as pd
-from time import mktime
-# from datetimerange import DateTimeRange
+import os, re, datetime, pandas
 
 
-# GLOBAL #
+# GLOBAL VARIABLES #
 doctype = None
 
-invalidDate_msg1 = "Please enter a valid date."
-invalidDate_msg2 = "Dates may use '.' '-' '\\' or '/' to separate month, day, and year.\nYou may choose to use no separators, and instead enter an 8 digit string (ie. March 9, 1994 as 03091994 "
+file_not_found_msg = "Could not open the US Foods Control Numbers document!\nMake sure the file is in the correct location:\n'G:\\WPy-3661\\python\\USF-997\\US Foods Control Numbers.csv'"
+invalidDate_msg1 = "Please enter a valid date.\n"
+invalidDate_msg2 = "Dates may use '.' '-' '\\' or '/' to separate month, day, and year.\nYou may choose to use no separators, and instead enter an 8 digit string (ie. March 9, 1994 as 03091994)"
 invalidDate_msg3 = "The End Date must be later than the Start Date"
 invalidDate_msg4 = "You cannot select a date that is in the future."
-tooManyErrors_msg10 = "You're not worthy of this application. BYE."
+tooManyErrors_msg10 = "Are you sure you're entering a date?"
+exit_msg = "BYE."
+error = 0
 
 months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 startDate = ''
 endDate = ''
 singleDate = False
-error = 0
+dateRange = None
+
+last810 = None
+last855 = None
+usf_ctrl_nums = None
+status = None
 
 dirs = []
 paths = [
 	# 'G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\03\\',
  # 'G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\04\\',
  # 'G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\05\\',
- 'G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\06\\'
+ # 'G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\06\\'
          ]
 paths2 = []
 outputA = {}
 outputR = {}
 unknown = {}
+
+numFiles = 0
+validDocList = []
+invalidDocs = 0
+
+segmentFiles = {}
+# print(usf_ctrl_nums)
+# usf_ctrl_nums.columns = ['DocType', 'LastDoc#']
 # file = open(r'G:/WPy-3661/python/USF-997/')
 # #
 
 
+def last_accepted(usf_ctrl_nums):
+	global last810
+	global last855
+
+	docType = usf_ctrl_nums.iloc[0,0]
+	if docType == "810's":
+		last810 = int(usf_ctrl_nums.iloc[0, 1])
+
+	docType = usf_ctrl_nums.iloc[2,0]
+	if docType == "855's":
+		last855 = int(usf_ctrl_nums.iloc[2, 1])
+
+	# print('Last document numbers:')
+	# print("810: {}".format(last810))
+	# print("855: {}".format(last855))
+	# return last810, last855
+	return last810, last855
 
 
 def future_date_chk(inDate):
@@ -43,17 +73,22 @@ def future_date_chk(inDate):
 
 
 def start_end_chk(start, end):
-	if start[2] > end[2]:
+	d1 = datetime.datetime.strptime(start, "%m-%d-%Y").date()
+	d2 = datetime.datetime.strptime(end, "%m-%d-%Y").date()
+	if d2 < d1:
 		error = 3
 		set_time_rng(error)
-	elif start[1] > end[1]:
-		error = 3
-		set_time_rng(error)
-	elif start[0] > end[0]:
-		error = 3
-		set_time_rng(error)
-	elif start == end:
-		singleDate = True
+	# if start[3:5] > end[3:5]:
+	# 	error = 3
+	# 	set_time_rng(error)
+	# elif start[1] > end[1]:
+	# 	error = 3
+	# 	set_time_rng(error)
+	# elif start[0] > end[0]:
+	# 	error = 3
+	# 	set_time_rng(error)
+	# elif start == end:
+	# 	singleDate = True
 
 
 def dbl_digit(month, day):
@@ -66,34 +101,74 @@ def dbl_digit(month, day):
 
 def error_msg(error):
 	if error == 1:
+		# invalid 1
+		statusOutput(status)
 		print(invalidDate_msg1, invalidDate_msg2)
 		os.system("pause")
+		error = 0
 	if error == 2:
-		print(invalidDate_msg2)
+		# invalid 2
+		statusOutput(status)
+		print(invalidDate_msg1, invalidDate_msg2)
 		os.system("pause")
+		error = 0
+	if error == 3:
+		# end date is before start date
+		statusOutput(status)
+		print(invalidDate_msg1, invalidDate_msg2)
+		print('\n')
+		print(invalidDate_msg3)
+		os.system("pause")
+		error = 0
+	if error == 4:
+		# date is in the future
+		statusOutput(status)
+		print(invalidDate_msg1, invalidDate_msg2)
+		print('\n')
+		print(invalidDate_msg4)
+		os.system("pause")
+		error = 0
+	if error == 5:
+		# date is in the future
+		print(file_not_found_msg)
+		print(exit_msg)
+		os.system("pause")
+		quit()
+
 	if error == 10:
+		# more than 5 errors
+		statusOutput(status)
+		print(invalidDate_msg1, invalidDate_msg2)
+		print('\n')
 		print(tooManyErrors_msg10)
 		os.system("pause")
+		error = 0
 		exit = True
+	if error == 11:
+		print(exit_msg)
+		os.system("pause")
+		quit()
 
 
-def valiDate(date, separator, start):
-	if start == None:
-		stMonth, stDay, stYear = date.split(separator)
+def valiDate(start, separator, end):
+	if end == None:
+		stMonth, stDay, stYear = start.split(separator)
 		stMonth, stDay = dbl_digit(stMonth, stDay)
 		startDate = stMonth + '-' + stDay + '-' + stYear
 		future_date_chk(startDate)
-		startDate = [int(stMonth),int(stDay),int(stYear)]
-		print(months[startDate[0]-1], stDay + ',', stYear)
+		startDateList = [int(stMonth),int(stDay),int(stYear)]
+		# print(months[startDate[0]-1], stDay + ',', stYear)
+		print(months[int(stMonth)-1], stDay + ',', stYear)
 		return startDate
-	elif start != None:
-		endMonth, endDay, endYear = date.split(separator)
+	elif end != None:
+		endMonth, endDay, endYear = end.split(separator)
 		endMonth, endDay = dbl_digit(endMonth, endDay)
 		endDate = endMonth + '-' + endDay + '-' + endYear
 		future_date_chk(endDate)
-		endDate = [int(endMonth), int(endDay), int(endYear)]
+		endDateList = [int(endMonth), int(endDay), int(endYear)]
 		start_end_chk(start, endDate)
-		print(months[endDate[0] - 1], endDay + ',', endYear)
+		# print(months[endDate[0] - 1], endDay + ',', endYear)
+		print(months[int(endMonth)-1], endDay + ',', endYear)
 		os.system("pause")
 		return endDate
 
@@ -101,136 +176,211 @@ def valiDate(date, separator, start):
 def set_time_rng(error):
 	exit = False
 	errorCnt = 0
+	global status
 
-	os.system('cls')
-	print("Please enter dates with the month, followed by day, followed by year.\n"
-		  "'.' '-' '\\' or '/' are acceptable separators\n")
+	status = "SELECT DATE RANGE . . ."
+	statusOutput(status)
 
 	error_msg(error)
-	error = 0
 
 	while exit == False:
-		os.system('cls')
-
 		# Take input for start date
+		# TODO: skip start input if error was on end date
 		startDate = input("Start Date: ")
-		mat = re.match("((\d{1,2})[\\\/\-.](\d{1,2})[\\\/\-.](\d{4}))|([\d{8}])", startDate)
 
 		if startDate.lower() == "exit":
 			exit = True
+			error = 11
 			break
-		elif mat != None:
-			# check for '\'
-			mat = re.search('[\\\]', startDate)
-			if mat != None:
-				startDate = valiDate(startDate, '\\', None)
-			else:
-				# check for '/'
-				mat = re.search('[/]', startDate)
-				if mat != None:
-					startDate = valiDate(startDate, '/', None)
-				else:
-					# check for '-'
-					mat = re.search('[-]', startDate)
-					if mat != None:
+		else:
+			# ([\d{8}])
+			# match = re.match("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", startDate)
+			# match = re.findall("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", startDate)
+			if (re.findall("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", startDate)) != []:
+				for x in match[0]:
+					if x == startDate:
+						startDate = valiDate(startDate, '\\', None)
+			elif (re.findall("((\d{1,2})[/](\d{1,2})[/](\d{4}))", startDate)) != []:
+				match = re.findall("((\d{1,2})[/](\d{1,2})[/](\d{4}))", startDate)
+				for x in match[0]:
+					if x == startDate:
+						startDate = valiDate(startDate, '/', None)
+			elif (re.findall("((\d{1,2})[-](\d{1,2})[-](\d{4}))", startDate)) != []:
+				match = re.findall("((\d{1,2})[-](\d{1,2})[-](\d{4})", startDate)
+				for x in match[0]:
+					if x == startDate:
 						startDate = valiDate(startDate, '-', None)
-					else:
-						# check for '.'
-						mat = re.search('[.]', startDate)
-						if mat != None:
-							startDate = valiDate(startDate, '.', None)
-
-						# no separators; check length
-						elif len(startDate) == 8:
-							stMonth = startDate[:2]
-							stDay = startDate[2:4]
-							stYear = startDate[4:]
-							startDate = stMonth + '-' + stDay + '-' + stYear
-							startDate = valiDate(startDate, '-', None)
-						else:
-							error = 1
-							set_time_rng(error)
+			elif (re.findall("((\d{1,2})[.](\d{1,2})[.](\d{4}))", startDate)) != []:
+				match = re.findall("((\d{1,2})[.](\d{1,2})[.](\d{4}))", startDate)
+				for x in match[0]:
+					if x == startDate:
+						startDate = valiDate(startDate, '.', None)
+			elif (re.findall("((\d{1,2})(\d{1,2})(\d{4}))", startDate)) != []:
+				match = re.findall("((\d{1,2})(\d{1,2})(\d{4}))", startDate)
+				for x in match[0]:
+					if x == startDate:
+						stMonth = startDate[:2]
+						stDay = startDate[2:4]
+						stYear = startDate[4:]
+						startDate = stMonth + '-' + stDay + '-' + stYear
+						startDate = valiDate(startDate, '-', None)
+			# if match.match > 0:
+			# 	# check for '\'
+			# 	match = re.search('[\\\]', startDate)
+			# 	if match != None:
+			# 		startDate = valiDate(startDate, '\\', None)
+			# 	else:
+			# 		# check for '/'
+			# 		match = re.search('[/]', startDate)
+			# 		if match != None:
+			# 			startDate = valiDate(startDate, '/', None)
+			# 		else:
+			# 			# check for '-'
+			# 			match = re.search('[-]', startDate)
+			# 			if match != None:
+			# 				startDate = valiDate(startDate, '-', None)
+			# 			else:
+			# 				# check for '.'
+			# 				match = re.search('[.]', startDate)
+			# 				if match != None:
+			# 					startDate = valiDate(startDate, '.', None)
+			#
+			# 				# no separators; check length
+			# 				elif len(startDate) == 8:
+			# 					stMonth = startDate[:2]
+			# 					stDay = startDate[2:4]
+			# 					stYear = startDate[4:]
+			# 					startDate = stMonth + '-' + stDay + '-' + stYear
+			# 					startDate = valiDate(startDate, '-', None)
+			else:
+				error = 1
+				set_time_rng(error)
 
 			# Take input for end date
 			endDate = input("End Date: ")
-			mat = re.match("((\d{1,2})[\\\/\-.](\d{1,2})[\\\/\-.](\d{4}))|([\d{8}])", endDate)
 
 			if endDate.lower() == "exit":
 				exit = True
+				error = 11
 				break
-			elif mat != None:
-				# check that end date >= start date
+			else:
+				# ([\d{8}])
+				# match = re.match("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", startDate)
+				# match = re.findall("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", startDate)
+				if (re.findall("((\d{1,2})[\\\](\d{1,2})[\\\](\d{4}))", endDate)) != []:
+					for x in match[0]:
+						if x == endDate:
+							endDate = valiDate(endDate, '\\', None)
+				elif (re.findall("((\d{1,2})[/](\d{1,2})[/](\d{4}))", endDate)) != []:
+					match = re.findall("((\d{1,2})[/](\d{1,2})[/](\d{4}))", endDate)
+					for x in match[0]:
+						if x == endDate:
+							endDate = valiDate(endDate, '/', None)
+				elif (re.findall("((\d{1,2})[-](\d{1,2})[-](\d{4}))", endDate)) != []:
+					match = re.findall("((\d{1,2})[-](\d{1,2})[-](\d{4})", endDate)
+					for x in match[0]:
+						if x == endDate:
+							endDate = valiDate(endDate, '-', None)
+				elif (re.findall("((\d{1,2})[.](\d{1,2})[.](\d{4}))", endDate)) != []:
+					match = re.findall("((\d{1,2})[.](\d{1,2})[.](\d{4}))", endDate)
+					for x in match[0]:
+						if x == endDate:
+							endDate = valiDate(endDate, '.', None)
+				elif (re.findall("((\d{1,2})(\d{1,2})(\d{4}))", endDate)) != []:
+					match = re.findall("((\d{1,2})(\d{1,2})(\d{4}))", endDate)
+					for x in match[0]:
+						if x == endDate:
+							endMonth = endDate[:2]
+							endDay = endDate[2:4]
+							endYear = endDate[4:]
+							endDate = endMonth + '-' + endDay + '-' + endYear
+							endDate = valiDate(endDate, '-', None)
 
-				# check for '\'
-				mat = re.search('[\\\]', endDate)
-				if mat != None:
-					endDate = valiDate(endDate, '\\', startDate)
-					exit = True
-				else:
-					# check for '/'
-					mat = re.search('[/]', endDate)
-					if mat != None:
-						endDate = valiDate(endDate, '/', startDate)
+
+
+
+			if endDate.lower() == "exit":
+				exit = True
+				error = 11
+				break
+			else:
+				match = re.match("((\d{1,2})[\\\/\-.](\d{1,2})[\\\/\-.](\d{4}))|([\d{8}])", endDate)
+				if match != None:
+					# check that end date >= start date
+
+					# check for '\'
+					match = re.search('[\\\]', endDate)
+					if match != None:
+						endDate = valiDate(startDate, '\\', endDate)
 						exit = True
 					else:
-						# check for '-'
-						mat = re.search('[-]', endDate)
-						if mat != None:
-							endDate = valiDate(endDate, '-', startDate)
+						# check for '/'
+						match = re.search('[/]', endDate)
+						if match != None:
+							endDate = valiDate(startDate, '/', endDate)
 							exit = True
 						else:
-							# check for '.'
-							mat = re.search('[.]', endDate)
-							if mat != None:
-								endDate = valiDate(endDate, '.', startDate)
-								exit = True
-
-							# no separators; check length
-							elif len(endDate) == 8:
-								endMonth = endDate[:2]
-								endDay = endDate[2:4]
-								endYear = endDate[4:]
-								endDate = endMonth + '-' + endDay + '-' + endYear
-								endDate = valiDate(endDate, '-', startDate)
+							# check for '-'
+							match = re.search('[-]', endDate)
+							if match != None:
+								endDate = valiDate(startDate, '-', endDate)
 								exit = True
 							else:
-								error = 12
-								set_time_rng(error)
+								# check for '.'
+								match = re.search('[.]', endDate)
+								if match != None:
+									endDate = valiDate(startDate, '.', endDate)
+									exit = True
+
+								# no separators; check length
+								elif len(endDate) == 8:
+									endMonth = endDate[:2]
+									endDay = endDate[2:4]
+									endYear = endDate[4:]
+									endDate = endMonth + '-' + endDay + '-' + endYear
+									endDate = valiDate(startDate, '-', endDate)
+									exit = True
+								else:
+									error = 12
+									set_time_rng(error)
+
+				elif errorCnt == 0:
+					error = 1
+					set_time_rng(error)
+					errorCnt += 1
+				elif errorCnt >= 5:
+					error = 0
+					set_time_rng(error)
+					exit = True
+					break
+				else:
+					error = 2
+					errorCnt += 1
+					set_time_rng(error)
 
 			elif errorCnt == 0:
 				error = 1
+				errorCnt +=1
 				set_time_rng(error)
-				errorCnt += 1
 			elif errorCnt >= 5:
-				error = 0
+				error = 10
 				set_time_rng(error)
-				exit = True
-				break
 			else:
 				error = 2
 				errorCnt += 1
 				set_time_rng(error)
 
-		elif errorCnt == 0:
-			error = 1
-			errorCnt +=1
-			set_time_rng(error)
-		elif errorCnt >= 5:
-			error = 10
-			set_time_rng(error)
-		else:
-			error = 2
-			errorCnt += 1
-			set_time_rng(error)
+	if error != 0:
+		error_msg(error)
 
-	dateRange = pd.date_range(start=startDate, end=endDate)
-	dateRange = pd.Series(dateRange.format())
+	dateRange = pandas.date_range(start=startDate, end=endDate)
+	dateRange = pandas.Series(dateRange.format())
 
 	return dateRange
 
 
-def create_paths(dates):
-	for date in dates:
+def create_paths(dateRange):
+	for date in dateRange:
 		year, month, day = date.split('-')
 		paths.append('G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#{}\\{}\\{}\\'.format(year, month, day))
 	return paths
@@ -248,17 +398,19 @@ def find_dir(paths):
 			paths2.append(path + dirty + '\\')
 			# loop through paths2 and check files
 
-	check_file(paths2)
+	return paths2
 
 
 # quick check for doc type and partner num
 def check_file(paths2):
-	# 'IN0940230354092.int'
+	status = 'SCANNING DOCUMENTS . . .'
+	statusOutput(status)
 
-	numFiles = 0
-	validDocList = []
-	invalidDocs = 0
-	segmentFiles = {}
+	global segmentFiles
+	global numFiles
+	global validDocList
+	global validDoc
+	global invalidDocs
 
 	for path in paths2:
 		numFiles = numFiles + len(os.listdir(path))
@@ -276,27 +428,6 @@ def check_file(paths2):
 
 			if validDoc == True:
 				segments = split_segs(file)
-				#
-				# lines = file.split("~")
-				#
-				# for strg in lines:
-				# 	seg = strg.split('^')
-				# 	segments[seg[0]] = strg
-				#
-				# for key in segments:
-				# 	segNum = 0
-				# 	fields = segments[key].split('^')
-				#
-				# 	for x in fields:
-				# 		x = x.replace(' ', '')
-				# 		fields[segNum] = x
-				# 		segNum += 1
-				# 	segments[key] = fields
-
-				# find ISA segment by looking for ISA-key in segments
-				# find ST segment, check doc type
-				# for key in segments:
-				# if key == "ISA":
 				partner = (segments[1])[6]
 				if partner == '621418185':
 					partner = True
@@ -315,46 +446,21 @@ def check_file(paths2):
 					validDocList.append(docPath)
 					segmentFiles[docPath] = segments
 
+					statusOutput(status)
+
 				else:
 					validDoc == False
 					invalidDocs += 1
+
+					statusOutput(status)
 			else:
 				pass
 				invalidDocs += 1
 
-	errors = error_check(segmentFiles)
+				statusOutput(status)
 
-	print('Total:', numFiles)
-	print('Valid:', len(validDocList))
-	print('Invalid:', invalidDocs)
-
-
-def error_check(segment_files):
-	ak5 = []
-	ak2 = []
-	for fileKey in segment_files:
-		file = segment_files[fileKey]
-		for key in file:
-			if (file[key])[0] == 'AK2':
-				# Ak2/AK5 segments
-				# Check for 'R'
-				if (file[key])[4] == 'A':
-					# Save document num, type and accept/reject symbol to list
-					outputA[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
-				elif (file[key])[4] == 'R':
-					# Save document num, type and accept/reject symbol to list
-					outputR[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
-				else:
-					unknown[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
-
-	# TODO: check accepted values against values in excel file
-	# TODO: find the empty dict that printing
-
-	print(outputA)
-	print('\n')
-	print(outputR)
-	print('\n')
-	print(unknown)
+	statusOutput(status)
+	return segmentFiles
 
 
 def split_segs(file):
@@ -391,22 +497,118 @@ def split_segs(file):
 	return segments
 
 
+def reject_check(segment_files, last810, last855):
+	ak5 = []
+	ak2 = []
+	status = 'SCANNING DOCUMENTS . . .'
+
+	for fileKey in segment_files:
+		file = segment_files[fileKey]
+		for key in file:
+			if (file[key])[0] == 'AK2':
+				# Ak2/AK5 segments
+				# Check for 'R'
+				if (file[key])[4] == 'A':
+					# Save document num, type and accept/reject symbol to list
+					outputA[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
+					if (file[key])[1] == '810':
+						if int(last810) < int((file[key])[2]):
+							usf_ctrl_nums.iloc[0,1] == (file[key])[2]
+					elif (file[key])[1] == '855':
+						if int(last855) < int((file[key])[2]):
+							usf_ctrl_nums.iloc[2,1] == (file[key])[2]
+				elif (file[key])[4] == 'R':
+					# Save document num, type and accept/reject symbol to list
+					# TODO: check against last accepted
+					outputR[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
+					statusOutput(status)
+				else:
+					unknown[fileKey] = [(file[key])[1], (file[key])[2], (file[key])[4]]
+					statusOutput(status)
+
+	usf_ctrl_nums.to_csv('G:\\WPy-3661\\python\\USF-997\\US_Foods_Ctrl_Nums.csv', header=None, index=False)
+	status = "FINISHED !"
+	statusOutput(status)
+
+
+def statusOutput(status):
+	if status == "SELECT DATE RANGE . . .":
+		os.system('cls')
+		print('Last document numbers:')
+		print("810: {}".format(last810))
+		print("855: {}".format(last855))
+		print('\n')
+		print(status)
+		print('\n')
+		print("Please enter dates with the month, followed by day, followed by year.\n"
+		      "'.' '-' '\\' or '/' are acceptable separators\n")
+	elif status == 'FINDING FILES WITHIN DATE RANGE . . .':
+		os.system('cls')
+		print('Last document numbers:')
+		print("810: {}".format(last810))
+		print("855: {}".format(last855))
+		print('\n')
+		print(status)
+	elif status == 'SCANNING DOCUMENTS . . .':
+		os.system('cls')
+		print('Last document numbers:')
+		print("810: {}".format(last810))
+		print("855: {}".format(last855))
+		print('\n')
+		print(status)
+		print('\n')
+		print('Total documents scanned:', numFiles)
+		print("US Foods 997's: ", len(validDocList))
+		print('Non USF 997 documents scanned:', invalidDocs)
+		print('\n')
+	elif status == "FINISHED !":
+		os.system('cls')
+		print('Last document numbers:')
+		print("810: {}".format(last810))
+		print("855: {}".format(last855))
+		print('\n')
+		print(status)
+		print('\n')
+		print('Total documents scanned:', numFiles)
+		print("US Foods 997's: ", len(validDocList))
+		print('Non USF 997 documents scanned:', invalidDocs)
+		print('\n')
+
+		if outputR != {}:
+			print("997's with rejected documents:")
+			print(outputR)
+		elif unknown != {}:
+			print("997's with unknown issue:")
+			print(unknown)
+		elif len(validDocList) == 0:
+			print("No new 997's for this date range")
+		else:
+			print("No 997's containing rejected documents were found!")
+		print("\nA log of the files scanned is located here: 'X:\DEVELOPMENT\EDI\\'")
+
+
 def check_cwd():
 	print(os.getcwd())
 
+def main_loop(error):
+	global usf_ctrl_nums
+	global status
+	os.chdir('G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\')
+	try:
+		usf_ctrl_nums = pandas.read_csv('G:\\WPy-3661\\python\\USF-997\\US Foods Control Numbers.csv', header=None)
+	except FileNotFoundError:
+		error = 5
+		error_msg(error)
 
-# os.chdir(r'G:/WPy-3661/python/USF-997/IntIn-DEV/')
-os.chdir('G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\')
+	last810, last855 = last_accepted(usf_ctrl_nums)
+	dateRange = set_time_rng(error)
+	status = 'FINDING FILES WITHIN DATE RANGE . . .'
+	statusOutput(status)
 
-# dateRange = set_time_rng(error)
-# paths = create_paths(dateRange)
+	paths = create_paths(dateRange)
+	paths2 = find_dir(paths)
+	segmentFiles = check_file(paths2)
+	reject_check(segmentFiles, last810, last855)
 
 
-# file = open('G:\\WPy-3661\\python\\USF-997\\IntIn-DEV\\#2018\\09\\06\\09\\IN0940230354092.INT')
-# file = file.read()
-# split_segs(file)
-
-
-paths2 = find_dir(paths)
-# print(paths2)
-# check_cwd()
+main_loop(error)
